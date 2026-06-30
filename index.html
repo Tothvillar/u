@@ -1,16 +1,12 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="><link rel="apple-touch-icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="><title>Fruit Match: Juicy Puzzle</title><meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,minimal-ui=true"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="format-detection" content="telephone=no"><meta name="renderer" content="webkit"><meta name="force-rendering" content="webkit"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><meta name="msapplication-tap-highlight" content="no"><meta name="full-screen" content="yes"><meta name="x5-fullscreen" content="true"><meta name="360-fullscreen" content="true"><meta name="x5-page-mode" content="app"><style>html{-ms-touch-action:none}body,canvas,div{display:block;outline:0;-webkit-tap-highlight-color:transparent;user-select:none;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none;-khtml-user-select:none;-webkit-tap-highlight-color:transparent}input::-webkit-inner-spin-button,input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}body{position:absolute;top:0;left:0;width:100%;height:100%;padding:0;border:0;margin:0;cursor:default;color:#888;background-color:#333;text-align:center;font-family:Helvetica,Verdana,Arial,sans-serif;display:flex;flex-direction:column}canvas{background-color:rgba(0,0,0,0)}#Cocos3dGameContainer,#GameCanvas,#GameDiv{width:100%;height:100%}:root{--safe-top:env(safe-area-inset-top);--safe-right:env(safe-area-inset-right);--safe-bottom:env(safe-area-inset-bottom);--safe-left:env(safe-area-inset-left)}</style><script>
-// Inject mraid.js script tag (MRAID spec requirement)
 (function() {
     var s = document.createElement('script');
     s.src = 'mraid.js';
     s.async = false;
     document.head.appendChild(s);
 })();
-
-// Orientation & resize event handlers (Unity playable requirement)
 (function() {
     function handleOrientationChange() {
-        // Notify game engine of orientation/size change
         if (window.cc && window.cc.view && window.cc.view.resizeWithBrowserSize) {
             window.cc.view.resizeWithBrowserSize(true);
         }
@@ -19,7 +15,6 @@
             var h = window.innerHeight || document.documentElement.clientHeight;
             window.cc.view.setCanvasSize(w, h);
         }
-        // Dispatch custom event for game logic
         window.dispatchEvent(new Event('orientationchange'));
         window.dispatchEvent(new Event('resize'));
     }
@@ -72,7 +67,6 @@
 </script>
 <script>
 (function () {
-  // Store URLs - replace with actual app store URLs
   var storeUrl = 'https://play.google.com/store/apps/details?id=YOUR_ANDROID_PACKAGE';
   var androidUrl = 'https://play.google.com/store/apps/details?id=YOUR_ANDROID_PACKAGE';
   var iosUrl = 'https://apps.apple.com/app/idYOUR_IOS_APP_ID';
@@ -80,11 +74,9 @@
 
   // MRAID bootstrap
   if (typeof mraid === 'undefined') {
-    // Desktop browser fallback - run directly
     document.addEventListener('DOMContentLoaded', function() {
       startGame();
     });
-    // If DOM already loaded
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
       startGame();
     }
@@ -119,8 +111,7 @@
     document.dispatchEvent(new Event('PLAYABLE:gameStart'));
   }
 
-  // Install function - call mraid.open with store URL
-  window.install = function() {
+  function install() {
     var userAgent = navigator.userAgent || navigator.vendor;
     var url = storeUrl;
     if (/android/i.test(userAgent) && androidUrl) {
@@ -133,12 +124,11 @@
     } else {
       window.open(url, '_blank');
     }
-  };
+  }
 
-  // Also expose as openAppStore for compatibility
-  window.openAppStore = window.install;
+  window.install = install;
+  window.openAppStore = install;
 
-  // Hook CTA buttons to call install
   function getNodePath(node) {
     var parts = [];
     while (node) {
@@ -199,11 +189,11 @@
     if (!proto || proto.__unityCtaHooked || typeof proto._onTouchEnded !== 'function') return;
     var originalTouchEnded = proto._onTouchEnded;
     proto._onTouchEnded = function () {
+      var result = originalTouchEnded.apply(this, arguments);
       var shouldInstall = false;
       try {
         shouldInstall = !!(this && this._pressed && isLikelyCtaButton(this));
       } catch (err) {}
-      var result = originalTouchEnded.apply(this, arguments);
       if (shouldInstall) {
         window.install();
       }
@@ -212,41 +202,29 @@
     proto.__unityCtaHooked = true;
   }
 
-  // Also intercept mraid.open, window.open, FbPlayableAd.onCTAClick etc.
   function hookSdkBridges() {
-    if (window.FbPlayableAd && !window.FbPlayableAd.__unityWrapped) {
-      var origFbCta = window.FbPlayableAd.onCTAClick;
+    if (window.FbPlayableAd && typeof window.FbPlayableAd.onCTAClick === 'function' && !window.__unityWrappedFbCta) {
+      var origFb = window.FbPlayableAd.onCTAClick;
       window.FbPlayableAd.onCTAClick = function() {
         window.install();
-        if (origFbCta) return origFbCta.apply(this, arguments);
+        return origFb.apply(this, arguments);
       };
-      window.FbPlayableAd.__unityWrapped = true;
+      window.__unityWrappedFbCta = true;
     }
-    if (window.ExitApi && !window.ExitApi.__unityWrapped) {
+    if (window.ExitApi && typeof window.ExitApi.exit === 'function' && !window.__unityWrappedExit) {
       window.ExitApi.exit = function() { window.install(); };
-      window.ExitApi.__unityWrapped = true;
+      window.__unityWrappedExit = true;
     }
-    if (window.BGY_MRAID && !window.BGY_MRAID.__unityWrapped) {
+    if (window.BGY_MRAID && typeof window.BGY_MRAID.open === 'function' && !window.__unityWrappedBgyOpen) {
       window.BGY_MRAID.open = function() { window.install(); };
-      window.BGY_MRAID.__unityWrapped = true;
+      window.__unityWrappedBgyOpen = true;
     }
-    // Don't override mraid.open here - we use it for install
-    // But override window.open to prevent navigation
     if (typeof window.open === 'function' && !window.__unityWrappedWindowOpen) {
-      var origWindowOpen = window.open;
-      window.open = function(url) {
-        // If it looks like a store URL or empty, call install
-        if (!url || url === '' || url === 'about:blank') {
-          window.install();
-        } else {
-          window.install();
-        }
-      };
+      window.open = function() { window.install(); };
       window.__unityWrappedWindowOpen = true;
     }
   }
 
-  // Wait for Cocos engine to load, then hook buttons
   var hookTimer = setInterval(function () {
     if (window.cc && window.cc.Button) {
       clearInterval(hookTimer);
@@ -256,11 +234,13 @@
   }, 100);
   setTimeout(function() { clearInterval(hookTimer); }, 10000);
 
-  // Also hook on load
-  window.addEventListener('load', function () {
-    hookCocosButtonBridge();
-    hookSdkBridges();
-  }, { once: true });
+  if (typeof mraid !== 'undefined' && mraid.open && !mraid.__unityHooked) {
+    var origMraidOpen = mraid.open;
+    mraid.open = function(url) {
+      window.install();
+    };
+    mraid.__unityHooked = true;
+  }
 })();
 </script>
 </body></html>
